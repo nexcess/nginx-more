@@ -1,8 +1,7 @@
 %global packagename			nginx
 %global nginx_user			nginx
 %global nginx_group			%{nginx_user}
-%global nginx_home			%{_localstatedir}/lib/nginx
-%global nginx_home_cache	%{nginx_home}/cache
+%global nginx_home			%{_localstatedir}/cache/nginx
 %global nginx_logdir		%{_localstatedir}/log/nginx
 %global nginx_confdir		%{_sysconfdir}/nginx
 %global nginx_datadir		%{_datadir}/nginx
@@ -12,15 +11,16 @@
 %global module_headers_more	0.33
 %global module_cache_purge	2.3
 %global module_vts			0.1.18
-%global module_brotli		snap20190307
+%global module_brotli		eustas-master-8104036
 %global module_geoip2		3.2
 %global module_echo			0.61
+%global module_modsec       master-d7101e1
 
 %define use_systemd (0%{?fedora} && 0%{?fedora} >= 18) || (0%{?rhel} && 0%{?rhel} >= 7)
 
-Name:						nginx-more
+Name:						nginx
 Version:					1.16.0
-Release:					2%{?dist}
+Release:					3%{?dist}
 
 Summary:					A high performance web server and reverse proxy server
 Group:						System Environment/Daemons
@@ -68,6 +68,14 @@ Source105:					ngx_brotli-%{module_brotli}.tar.gz
 Source106:					ngx_module_vts-%{module_vts}.tar.gz
 Source107:					ngx_http_geoip2_module-%{module_geoip2}.tar.gz
 Source108:					ngx_echo-%{module_echo}.tar.gz
+Source109:                  ModSecurity-nginx-%{module_modsec}.tar.gz
+
+Source200:                  nginx.vh.default.conf
+Source201:                  nginx.sysconf
+Source202:                  nginx-debug.sysconf
+Source203:                  nginx-debug.service
+Source204:                  nginx.upgrade.sh
+Source205:                  nginx.check-reload.sh
 
 Patch0:						nginx-version.patch
 Patch1:						ngx_cache_purge-fix-compatibility-with-nginx-1.11.6.patch
@@ -82,6 +90,7 @@ BuildRequires:				gd-devel
 BuildRequires:				httpd-devel
 BuildRequires:				libuuid-devel
 BuildRequires:				libmaxminddb-devel
+BuildRequires:              libmodsecurity-devel
 
 %if 0%{?rhel} == 7
 BuildRequires:				GeoIP-devel
@@ -89,6 +98,7 @@ BuildRequires:				GeoIP-devel
 
 Requires:					gd
 Requires:					pcre
+Requires:                   libmodsecurity
 Requires(pre):				shadow-utils
 
 %if %{use_systemd}
@@ -118,6 +128,8 @@ Nginx is a web server and a reverse proxy server for HTTP, SMTP, POP3 and
 IMAP protocols, with a strong focus on high concurrency, performance and low
 memory usage. 
 
+This version of nginx-more includes several changes to bring it in line with
+the default setup/configuration of upstream  nginx.org provided rpm.
 
 %prep
 %setup -q -n %{packagename}-%{version}
@@ -132,6 +144,7 @@ tar -zxvf %{SOURCE105} -C modules/
 tar -zxvf %{SOURCE106} -C modules/
 tar -zxvf %{SOURCE107} -C modules/
 tar -zxvf %{SOURCE108} -C modules/
+tar -xzvf %{SOURCE109} -C modules/
 
 %{__sed} -i 's_@CACHEPVER@_%{module_cache_purge}_' %{PATCH1}
 
@@ -140,6 +153,7 @@ tar -zxvf %{SOURCE108} -C modules/
 
 %build
 export DESTDIR=%{buildroot}
+# Configure & make nginx-debug
 ./configure \
 	--prefix=%{nginx_datadir} \
 	--sbin-path=%{_sbindir}/nginx \
@@ -147,11 +161,11 @@ export DESTDIR=%{buildroot}
 	--conf-path=%{nginx_confdir}/nginx.conf \
 	--error-log-path=%{nginx_logdir}/error.log \
 	--http-log-path=%{nginx_logdir}/access.log \
-	--http-client-body-temp-path=%{nginx_home_cache}/client_body \
-	--http-proxy-temp-path=%{nginx_home_cache}/proxy \
-	--http-fastcgi-temp-path=%{nginx_home_cache}/fastcgi \
-	--http-uwsgi-temp-path=%{nginx_home_cache}/uwsgi \
-	--http-scgi-temp-path=%{nginx_home_cache}/scgi \
+	--http-client-body-temp-path=%{nginx_home}/client_temp \
+	--http-proxy-temp-path=%{nginx_home}/proxy_temp \
+	--http-fastcgi-temp-path=%{nginx_home}/fastcgi_temp \
+	--http-uwsgi-temp-path=%{nginx_home}/uwsgi_temp \
+	--http-scgi-temp-path=%{nginx_home}/scgi_temp \
 	--pid-path=%{_localstatedir}/run/nginx.pid \
 	--lock-path=%{_localstatedir}/run/nginx.lock \
 	--user=%{nginx_user} \
@@ -186,7 +200,6 @@ export DESTDIR=%{buildroot}
 	--with-stream_realip_module \
 	--with-http_slice_module \
 	--with-stream_ssl_preread_module \
-	--with-debug \
 	--with-cc-opt="%{optflags} $(pcre-config --cflags) -DTCP_FASTOPEN=23" \
 	--with-cc="/opt/rh/devtoolset-7/root/usr/bin/gcc" \
 	--with-openssl=modules/openssl-%{openssl_version} \
@@ -196,8 +209,70 @@ export DESTDIR=%{buildroot}
 	--add-module=modules/ngx_pagespeed-%{module_ps} \
 	--add-module=modules/ngx_brotli-%{module_brotli} \
 	--add-module=modules/ngx_http_geoip2_module-%{module_geoip2} \
-	--add-module=modules/ngx_echo-%{module_echo}
-
+	--add-module=modules/ngx_echo-%{module_echo} \
+	--add-module=modules/ModSecurity-nginx-%{module_modsec} \
+	--with-debug
+make
+%{__mv} %{_builddir}/nginx-%{version}/objs/nginx \
+    %{_builddir}/nginx-%{version}/objs/nginx-debug
+# Configure and make nginx
+./configure \
+	--prefix=%{nginx_datadir} \
+	--sbin-path=%{_sbindir}/nginx \
+	--modules-path=%{_libdir}/nginx/modules \
+	--conf-path=%{nginx_confdir}/nginx.conf \
+	--error-log-path=%{nginx_logdir}/error.log \
+	--http-log-path=%{nginx_logdir}/access.log \
+	--http-client-body-temp-path=%{nginx_home}/client_temp \
+	--http-proxy-temp-path=%{nginx_home}/proxy_temp \
+	--http-fastcgi-temp-path=%{nginx_home}/fastcgi_temp \
+	--http-uwsgi-temp-path=%{nginx_home}/uwsgi_temp \
+	--http-scgi-temp-path=%{nginx_home}/scgi_temp \
+	--pid-path=%{_localstatedir}/run/nginx.pid \
+	--lock-path=%{_localstatedir}/run/nginx.lock \
+	--user=%{nginx_user} \
+	--group=%{nginx_group} \
+	--with-compat \
+	--with-file-aio \
+	--with-http_ssl_module \
+	--with-http_realip_module \
+	--with-http_addition_module \
+	--with-http_image_filter_module \
+	--with-http_sub_module \
+	--with-http_dav_module \
+	--with-http_flv_module \
+	--with-http_mp4_module \
+	--with-http_gunzip_module \
+	--with-http_gzip_static_module \
+	%if 0%{?rhel} == 7
+		--with-http_geoip_module \
+	%endif
+	--with-http_random_index_module \
+	--with-http_secure_link_module \
+	--with-http_degradation_module \
+	--with-http_stub_status_module \
+	--with-http_auth_request_module \
+	--with-http_xslt_module \
+	--with-http_v2_module \
+	--with-mail \
+	--with-mail_ssl_module \
+	--with-threads \
+	--with-stream \
+	--with-stream_ssl_module \
+	--with-stream_realip_module \
+	--with-http_slice_module \
+	--with-stream_ssl_preread_module \
+	--with-cc-opt="%{optflags} $(pcre-config --cflags) -DTCP_FASTOPEN=23" \
+	--with-cc="/opt/rh/devtoolset-7/root/usr/bin/gcc" \
+	--with-openssl=modules/openssl-%{openssl_version} \
+	--add-module=modules/ngx_headers_more-%{module_headers_more} \
+	--add-module=modules/ngx_cache_purge-%{module_cache_purge} \
+	--add-module=modules/ngx_module_vts-%{module_vts} \
+	--add-module=modules/ngx_pagespeed-%{module_ps} \
+	--add-module=modules/ngx_brotli-%{module_brotli} \
+	--add-module=modules/ngx_http_geoip2_module-%{module_geoip2} \
+	--add-module=modules/ngx_echo-%{module_echo} \
+	--add-module=modules/ModSecurity-nginx-%{module_modsec}
 make
 
 %install
@@ -225,35 +300,48 @@ install -p -D -m 0644 %{SOURCE3} \
 	%{buildroot}%{_sysconfdir}/logrotate.d/nginx
 
 install -p -d -m 0755 %{buildroot}%{nginx_confdir}/conf.d
-install -p -d -m 0755 %{buildroot}%{nginx_confdir}/conf.d/custom
-install -p -d -m 0755 %{buildroot}%{nginx_confdir}/conf.d/vhosts
+#install -p -d -m 0755 %{buildroot}%{nginx_confdir}/conf.d/custom
+#install -p -d -m 0755 %{buildroot}%{nginx_confdir}/conf.d/vhosts
 install -p -d -m 0700 %{buildroot}%{nginx_home}
-install -p -d -m 0700 %{buildroot}%{nginx_home_cache}
-install -p -d -m 0700 %{buildroot}%{nginx_home_cache}/pagespeed
+install -p -d -m 0700 %{buildroot}%{nginx_home}/pagespeed
 install -p -d -m 0700 %{buildroot}%{nginx_logdir}
 install -p -d -m 0755 %{buildroot}%{nginx_webroot}
 
 install -p -m 0644 %{SOURCE4} %{buildroot}%{nginx_confdir}
 
-install -p -m 0644 %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE15} %{SOURCE16} %{SOURCE18} %{SOURCE19} %{SOURCE20} %{SOURCE21} %{SOURCE22} %{SOURCE23} %{SOURCE24} %{SOURCE25} %{SOURCE26} %{SOURCE27} %{SOURCE28} %{SOURCE29} %{SOURCE30} %{SOURCE31} \
-	%{buildroot}%{nginx_confdir}/conf.d/custom
-install -p -m 0644 %{SOURCE17} \
-	%{buildroot}%{nginx_confdir}/conf.d/vhosts
+#install -p -m 0644 %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} %{SOURCE14} %{SOURCE15} %{SOURCE16} %{SOURCE18} %{SOURCE19} %{SOURCE20} %{SOURCE21} %{SOURCE22} %{SOURCE23} %{SOURCE24} %{SOURCE25} %{SOURCE26} %{SOURCE27} %{SOURCE28} %{SOURCE29} %{SOURCE30} %{SOURCE31} \
+#	%{buildroot}%{nginx_confdir}/conf.d/custom
+#install -p -m 0644 %{SOURCE17} \
+#	%{buildroot}%{nginx_confdir}/conf.d/vhosts
 
-install -p -D -m 0644 %{_builddir}/nginx-%{version}/man/nginx.8 \
+install -p -D -m 0644 %{_builddir}/nginx-%{version}/objs/nginx.8 \
 	%{buildroot}%{_mandir}/man8/nginx.8
 
-%if %{use_systemd}
-	install -p -D -m 0755 %{SOURCE5} %{buildroot}%{_bindir}/nginx-upgrade
-	install -p -D -m 0644 %{SOURCE6} %{buildroot}%{_mandir}/man8/nginx-upgrade.8
-%endif
+#%if %{use_systemd}
+#	install -p -D -m 0755 %{SOURCE5} %{buildroot}%{_bindir}/nginx-upgrade
+#	install -p -D -m 0644 %{SOURCE6} %{buildroot}%{_mandir}/man8/nginx-upgrade.8
+#%endif
 
+# Add some configs from upstream nginx rpm
+%{__mkdir} -p %{buildroot}%{_sysconfdir}/sysconfig
+%{__mkdir} -p %{buildroot}%{_libexecdir}/initscripts/legacy-actions/nginx
+%{__install} -m 644 -p %{SOURCE200} %{buildroot}%{_sysconfdir}/nginx/conf.d/default.conf
+%{__install} -m755 %{_builddir}/nginx-%{version}/objs/nginx-debug %{buildroot}%{_sbindir}/nginx-debug
+%{__install} -m 644 -p %{SOURCE201} %{buildroot}%{_sysconfdir}/sysconfig/nginx
+%{__install} -m 644 -p %{SOURCE202} %{buildroot}%{_sysconfdir}/sysconfig/nginx-debug
+%{__install} -m 644 -p %{SOURCE203} %{buildroot}%{_unitdir}/nginx-debug.service
+%{__install} -m755 %{SOURCE204} %{buildroot}%{_libexecdir}/initscripts/legacy-actions/nginx/upgrade
+%{__install} -m755 %{SOURCE205} %{buildroot}%{_libexecdir}/initscripts/legacy-actions/nginx/check-reload
+
+# Remove extraneous configs
+%{__rm} -f %{buildroot}%{_sysconfdir}/nginx/*.default
+%{__rm} -f %{buildroot}%{_sysconfdir}/nginx/fastcgi.conf
 
 %pre
 getent group %{nginx_group} > /dev/null || groupadd -r %{nginx_group}
 getent passwd %{nginx_user} > /dev/null || \
 	useradd -r -d %{nginx_home} -g %{nginx_group} \
-	-s /sbin/nologin -c "Nginx web server" %{nginx_user}
+	-s /sbin/nologin -c "nginx user" %{nginx_user}
 exit 0
 
 
@@ -267,7 +355,6 @@ fi
 %endif
 if [ $1 -eq 2 ]; then
 	chmod 700 %{nginx_home}
-	chmod 700 %{nginx_home_cache}
 	chmod 700 %{nginx_logdir}
 fi
 if [ $1 -eq 1 ]; then
@@ -312,52 +399,66 @@ fi
 %doc LICENSE CHANGES README
 %{nginx_datadir}/
 %if %{use_systemd}
-%{_bindir}/nginx-upgrade
+#%{_bindir}/nginx-upgrade
 %endif
 %{_sbindir}/nginx
+%{_sbindir}/nginx-debug
 %{_mandir}/man8/nginx.8*
 %if %{use_systemd}
-%{_mandir}/man8/nginx-upgrade.8*
+#%{_mandir}/man8/nginx-upgrade.8*
 %{_unitdir}/nginx.service
+%{_unitdir}/nginx-debug.service
 %else
 %{_initrddir}/nginx
 %endif
 %dir %{nginx_confdir}
 %dir %{nginx_confdir}/conf.d
-%dir %{nginx_confdir}/conf.d/custom
-%dir %{nginx_confdir}/conf.d/vhosts
+#%dir %{nginx_confdir}/conf.d/custom
+#%dir %{nginx_confdir}/conf.d/vhosts
 %{_sysconfdir}/nginx/modules
 
-%config(noreplace) %{nginx_confdir}/fastcgi.conf
-%config(noreplace) %{nginx_confdir}/fastcgi.conf.default
+%dir %{_libexecdir}/initscripts/legacy-actions/nginx
+%{_libexecdir}/initscripts/legacy-actions/nginx/upgrade
+%{_libexecdir}/initscripts/legacy-actions/nginx/check-reload
+
+#%config(noreplace) %{nginx_confdir}/fastcgi.conf
+#%config(noreplace) %{nginx_confdir}/fastcgi.conf.default
 %config(noreplace) %{nginx_confdir}/fastcgi_params
-%config(noreplace) %{nginx_confdir}/fastcgi_params.default
+#%config(noreplace) %{nginx_confdir}/fastcgi_params.default
 %config(noreplace) %{nginx_confdir}/koi-utf
 %config(noreplace) %{nginx_confdir}/koi-win
 %config(noreplace) %{nginx_confdir}/mime.types
-%config(noreplace) %{nginx_confdir}/mime.types.default
+#%config(noreplace) %{nginx_confdir}/mime.types.default
 %config(noreplace) %{nginx_confdir}/nginx.conf
-%config(noreplace) %{nginx_confdir}/nginx.conf.default
+#%config(noreplace) %{nginx_confdir}/nginx.conf.default
 %config(noreplace) %{nginx_confdir}/scgi_params
-%config(noreplace) %{nginx_confdir}/scgi_params.default
+#%config(noreplace) %{nginx_confdir}/scgi_params.default
 %config(noreplace) %{nginx_confdir}/uwsgi_params
-%config(noreplace) %{nginx_confdir}/uwsgi_params.default
+#%config(noreplace) %{nginx_confdir}/uwsgi_params.default
 %config(noreplace) %{nginx_confdir}/win-utf
-%config(noreplace) %{nginx_confdir}/conf.d/custom/*.conf
+#%config(noreplace) %{nginx_confdir}/conf.d/custom/*.conf
 %config(noreplace) %{_sysconfdir}/logrotate.d/nginx
+%config(noreplace) %{_sysconfdir}/nginx/conf.d/default.conf
+%config(noreplace) %{_sysconfdir}/sysconfig/nginx
+%config(noreplace) %{_sysconfdir}/sysconfig/nginx-debug
 
 %attr(700,%{nginx_user},%{nginx_group}) %dir %{nginx_home}
-%attr(700,%{nginx_user},%{nginx_group}) %dir %{nginx_home_cache}
-%attr(700,%{nginx_user},%{nginx_group}) %dir %{nginx_home_cache}/pagespeed
+%attr(700,%{nginx_user},%{nginx_group}) %dir %{nginx_home}/pagespeed
 %attr(700,%{nginx_user},%{nginx_group}) %dir %{nginx_logdir}
 %attr(0755,root,root) %dir %{_libdir}/nginx
 %attr(0755,root,root) %dir %{_libdir}/nginx/modules
-/etc/nginx/conf.d/vhosts/*-exemple
-/etc/nginx/conf.d/custom/*-exemple
-/etc/nginx/conf.d/custom/aerisnetwork-ips
+#/etc/nginx/conf.d/vhosts/*-exemple
+#/etc/nginx/conf.d/custom/*-exemple
+#/etc/nginx/conf.d/custom/aerisnetwork-ips
 
 
 %changelog
+* Mon Jun 10 2019 Teddy Wells <twells@nexcess.net> - 1.16.0-3
+- Add ModSecurity-nginx
+- Rename from nginx to nginx-more
+- Bring in line with the default setup/configuration of upstream nginx.org provided rpm
+- Use generated man page rather than man page template
+
 * Wed May 15 2019 Karl Johnson <karljohnson.it@gmail.com> - 1.16.0-2
 - Bump to Nginx 1.16.0
 - Remove obsolete "--with-ipv6" and "ssl on"

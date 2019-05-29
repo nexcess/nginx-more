@@ -1,10 +1,15 @@
-/var/log/nginx/*log {
-    rotate 5
-    missingok
-    notifempty
-    compress
-    sharedscripts
-    postrotate
-        /bin/kill -USR1 $(cat /var/run/nginx.pid 2>/dev/null) 2>/dev/null || :
-    endscript
+/var/log/nginx/*.log {
+        daily
+        missingok
+        rotate 52
+        compress
+        delaycompress
+        notifempty
+        create 640 nginx adm
+        sharedscripts
+        postrotate
+                if [ -f /var/run/nginx.pid ]; then
+                        kill -USR1 `cat /var/run/nginx.pid`
+                fi
+        endscript
 }
