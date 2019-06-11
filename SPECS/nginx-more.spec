@@ -6,7 +6,7 @@
 %global nginx_confdir		%{_sysconfdir}/nginx
 %global nginx_datadir		%{_datadir}/nginx
 %global nginx_webroot		%{nginx_datadir}/html
-%global openssl_version		1.1.1b
+%global openssl_version		1.1.1c
 %global module_ps			1.13.35.2-stable
 %global module_headers_more	0.33
 %global module_cache_purge	2.3
@@ -20,7 +20,7 @@
 
 Name:						nginx
 Version:					1.16.0
-Release:					3%{?dist}
+Release:					4%{?dist}
 
 Summary:					A high performance web server and reverse proxy server
 Group:						System Environment/Daemons
@@ -453,6 +453,9 @@ fi
 
 
 %changelog
+* Tue Jun 11 2019 Teddy Wells <twells@nexcess.net> - 1.16.0-4
+- update openssl to 1.1.1c
+
 * Mon Jun 10 2019 Teddy Wells <twells@nexcess.net> - 1.16.0-3
 - Add ModSecurity-nginx
 - Rename from nginx to nginx-more
