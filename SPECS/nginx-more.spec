@@ -15,12 +15,14 @@
 %global module_geoip2		3.2
 %global module_echo			0.61
 %global module_modsec       master-d7101e1
+%global epoch               1
 
 %define use_systemd (0%{?fedora} && 0%{?fedora} >= 18) || (0%{?rhel} && 0%{?rhel} >= 7)
 
 Name:						nginx
 Version:					1.16.0
-Release:					4%{?dist}
+Release:					5%{?dist}
+Epoch:                      %{epoch}
 
 Summary:					A high performance web server and reverse proxy server
 Group:						System Environment/Daemons
@@ -453,6 +455,9 @@ fi
 
 
 %changelog
+* Wed Jun 19 2019 Teddy Wells <twells@nexcess.net> - 1.16.0-5
+- set epoch to 1
+
 * Tue Jun 11 2019 Teddy Wells <twells@nexcess.net> - 1.16.0-4
 - update openssl to 1.1.1c
 
