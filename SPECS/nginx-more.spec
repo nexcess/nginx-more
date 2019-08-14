@@ -20,8 +20,8 @@
 %define use_systemd (0%{?fedora} && 0%{?fedora} >= 18) || (0%{?rhel} && 0%{?rhel} >= 7)
 
 Name:						nginx
-Version:					1.16.0
-Release:					5%{?dist}
+Version:					1.16.1
+Release:					1%{?dist}
 Epoch:                      %{epoch}
 
 Summary:					A high performance web server and reverse proxy server
