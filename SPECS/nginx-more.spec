@@ -21,7 +21,7 @@
 
 Name:						nginx
 Version:					1.16.1
-Release:					1%{?dist}
+Release:					2%{?dist}
 Epoch:                      %{epoch}
 
 Summary:					A high performance web server and reverse proxy server
@@ -81,6 +81,7 @@ Source205:                  nginx.check-reload.sh
 
 Patch0:						nginx-version.patch
 Patch1:						ngx_cache_purge-fix-compatibility-with-nginx-1.11.6.patch
+Patch2:						nginx_hpack_push_1.15.3.patch
 
 BuildRequires:				devtoolset-7-gcc-c++ devtoolset-7-binutils
 BuildRequires:				libxslt-devel
@@ -152,6 +153,7 @@ tar -xzvf %{SOURCE109} -C modules/
 
 %patch0 -p0
 %patch1 -p0
+%patch2 -p1
 
 %build
 export DESTDIR=%{buildroot}
@@ -194,6 +196,7 @@ export DESTDIR=%{buildroot}
 	--with-http_auth_request_module \
 	--with-http_xslt_module \
 	--with-http_v2_module \
+    --with-http_v2_hpack_enc \
 	--with-mail \
 	--with-mail_ssl_module \
 	--with-threads \
@@ -256,6 +259,7 @@ make
 	--with-http_auth_request_module \
 	--with-http_xslt_module \
 	--with-http_v2_module \
+    --with-http_v2_hpack_enc \
 	--with-mail \
 	--with-mail_ssl_module \
 	--with-threads \
@@ -455,6 +459,13 @@ fi
 
 
 %changelog
+* Wed Aug 14 2019 Teddy Wells <twells@nexcess.net> - 1.16.1-2
+- Add patch for hpack compression
+
+* Tue Aug 13 2019 Teddy Wells <twells@nexcess.net> - 1.16.1-1
+- Update nginx to 1.16.1
+- mitigates CVE-2019-9511, CVE-2019-9513, and CVE-2019-9516
+
 * Wed Jun 19 2019 Teddy Wells <twells@nexcess.net> - 1.16.0-5
 - set epoch to 1
 
