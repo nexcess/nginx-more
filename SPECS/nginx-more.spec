@@ -6,7 +6,7 @@
 %global nginx_confdir		%{_sysconfdir}/nginx
 %global nginx_datadir		%{_datadir}/nginx
 %global nginx_webroot		%{nginx_datadir}/html
-%global openssl_version		1.1.1c
+%global openssl_version		1.1.1g
 %global module_ps			1.13.35.2-stable
 %global module_headers_more	0.33
 %global module_cache_purge	2.3
@@ -14,14 +14,14 @@
 %global module_brotli		eustas-master-8104036
 %global module_geoip2		3.2
 %global module_echo			0.61
-%global module_modsec       master-d7101e1
+%global module_modsec       v1.0.1
 %global epoch               1
 
 %define use_systemd (0%{?fedora} && 0%{?fedora} >= 18) || (0%{?rhel} && 0%{?rhel} >= 7)
 
 Name:						nginx
-Version:					1.16.1
-Release:					2%{?dist}
+Version:					1.18.0
+Release:					1%{?dist}
 Epoch:                      %{epoch}
 
 Summary:					A high performance web server and reverse proxy server
@@ -61,7 +61,7 @@ Source29:					fpm-sendy.conf
 Source30:					fpm-sendy-users.conf
 Source31:					restrictions-users.conf
 
-Source100:					openssl-%{openssl_version}.tar.gz
+Source100:					https://www.openssl.org/source/openssl-%{openssl_version}.tar.gz
 Source101:					ngx_pagespeed-%{module_ps}.tar.gz
 Source102:					psol-%{module_ps}.tar.gz
 Source103:					ngx_headers_more-%{module_headers_more}.tar.gz
@@ -70,7 +70,7 @@ Source105:					ngx_brotli-%{module_brotli}.tar.gz
 Source106:					ngx_module_vts-%{module_vts}.tar.gz
 Source107:					ngx_http_geoip2_module-%{module_geoip2}.tar.gz
 Source108:					ngx_echo-%{module_echo}.tar.gz
-Source109:                  ModSecurity-nginx-%{module_modsec}.tar.gz
+Source109:                  https://github.com/SpiderLabs/ModSecurity-nginx/releases/download/%{module_modsec}/modsecurity-nginx-%{module_modsec}.tar.gz
 
 Source200:                  nginx.vh.default.conf
 Source201:                  nginx.sysconf
@@ -81,7 +81,8 @@ Source205:                  nginx.check-reload.sh
 
 Patch0:						nginx-version.patch
 Patch1:						ngx_cache_purge-fix-compatibility-with-nginx-1.11.6.patch
-Patch2:						nginx_hpack_push_1.15.3.patch
+Patch2:						ngx_cloudflare_dynamic_tls_records_1015008.patch
+Patch3:						ngx_cloudflare_http2_hpack_1015003.patch
 
 BuildRequires:				devtoolset-7-gcc-c++ devtoolset-7-binutils
 BuildRequires:				libxslt-devel
@@ -154,6 +155,7 @@ tar -xzvf %{SOURCE109} -C modules/
 %patch0 -p0
 %patch1 -p0
 %patch2 -p1
+%patch3 -p1
 
 %build
 export DESTDIR=%{buildroot}
@@ -215,7 +217,7 @@ export DESTDIR=%{buildroot}
 	--add-module=modules/ngx_brotli-%{module_brotli} \
 	--add-module=modules/ngx_http_geoip2_module-%{module_geoip2} \
 	--add-module=modules/ngx_echo-%{module_echo} \
-	--add-module=modules/ModSecurity-nginx-%{module_modsec} \
+	--add-module=modules/modsecurity-nginx-%{module_modsec} \
 	--with-debug
 make
 %{__mv} %{_builddir}/nginx-%{version}/objs/nginx \
@@ -278,7 +280,7 @@ make
 	--add-module=modules/ngx_brotli-%{module_brotli} \
 	--add-module=modules/ngx_http_geoip2_module-%{module_geoip2} \
 	--add-module=modules/ngx_echo-%{module_echo} \
-	--add-module=modules/ModSecurity-nginx-%{module_modsec}
+	--add-module=modules/modsecurity-nginx-%{module_modsec}
 make
 
 %install
@@ -459,6 +461,12 @@ fi
 
 
 %changelog
+* Wed Aug 26 2020 Teddy Wells <twells@nexcess.net> - 1.18.0-1
+- Update to 1.18.0
+- update ModSecurity-nginx connector to 1.0.1
+- update openssl to 1.1.1g
+- pull upstream patches ngx_cloudflare_dynamic_tls_records_1015008.patch & ngx_cloudflare_http2_hpack_1015003.patch
+
 * Wed Aug 14 2019 Teddy Wells <twells@nexcess.net> - 1.16.1-2
 - Add patch for hpack compression
 
