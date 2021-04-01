@@ -6,7 +6,7 @@
 %global nginx_confdir		%{_sysconfdir}/nginx
 %global nginx_datadir		%{_datadir}/nginx
 %global nginx_webroot		%{nginx_datadir}/html
-%global openssl_version		1.1.1g
+%global openssl_version		1.1.1k
 %global module_ps			1.13.35.2-stable
 %global module_headers_more	0.33
 %global module_cache_purge	2.3
@@ -21,7 +21,7 @@
 
 Name:						nginx
 Version:					1.18.0
-Release:					1%{?dist}
+Release:					2%{?dist}
 Epoch:                      %{epoch}
 
 Summary:					A high performance web server and reverse proxy server
@@ -461,6 +461,9 @@ fi
 
 
 %changelog
+* Thu Apr 1 2021 Teddy Wells <twells@nexcess.net> - 1.18.0-2
+- Update openssl to 1.1.1k
+
 * Wed Aug 26 2020 Teddy Wells <twells@nexcess.net> - 1.18.0-1
 - Update to 1.18.0
 - update ModSecurity-nginx connector to 1.0.1
