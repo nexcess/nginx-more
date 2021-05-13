@@ -20,8 +20,8 @@
 %define use_systemd (0%{?fedora} && 0%{?fedora} >= 18) || (0%{?rhel} && 0%{?rhel} >= 7)
 
 Name:						nginx
-Version:					1.18.0
-Release:					2%{?dist}
+Version:					1.20.0
+Release:					1%{?dist}
 Epoch:                      %{epoch}
 
 Summary:					A high performance web server and reverse proxy server
@@ -81,8 +81,8 @@ Source205:                  nginx.check-reload.sh
 
 Patch0:						nginx-version.patch
 Patch1:						ngx_cache_purge-fix-compatibility-with-nginx-1.11.6.patch
-Patch2:						ngx_cloudflare_dynamic_tls_records_1015008.patch
-Patch3:						ngx_cloudflare_http2_hpack_1015003.patch
+Patch2:						ngx_cloudflare_http2_hpack_1015003.patch
+Patch3:						ngx_cloudflare_dynamic_tls_records_1015008.patch
 
 BuildRequires:				devtoolset-7-gcc-c++ devtoolset-7-binutils
 BuildRequires:				libxslt-devel
@@ -461,6 +461,10 @@ fi
 
 
 %changelog
+* Mon May 3 2021 Teddy Wells <twells@nexcess.net> - 1.20.0-1
+- Update Nginx to 1.20.0
+- Update ngx_cloudflare_dynamic_tls_records_1015008.patch from https://github.com/karljohns0n/nginx-more/commit/1c46423bff8687604fb0421c24cb8f92b2597968
+
 * Thu Apr 1 2021 Teddy Wells <twells@nexcess.net> - 1.18.0-2
 - Update openssl to 1.1.1k
 
